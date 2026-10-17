@@ -65,6 +65,32 @@ def inspect_solana_spl_mint(mint_address: str) -> dict:
     }
 
 
+def inspect_evm_eip1967_proxy(proxy_address: str, rpc_url: str = EVM_ETH_RPC) -> dict:
+    """
+    Resolves the live EIP-1967 implementation storage slot (`0x360894...`) on an EVM network.
+    """
+    slot = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+    payload = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "eth_getStorageAt",
+            "params": [proxy_address.strip(), slot, "latest"],
+        }
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        rpc_url,
+        data=payload,
+        headers={"Content-Type": "application/json", "User-Agent": "Argon-MultiChain-SDK/1.0"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=12) as resp:
+        data = json.loads(resp.read(1_048_576).decode("utf-8"))
+    raw = str(data.get("result") or "0x0").replace("0x", "").zfill(64)
+    impl = "0x" + raw[-40:] if raw[-40:] != "0" * 40 else None
+    return {"proxy_address": proxy_address, "eip1967_implementation": impl}
+
+
 if __name__ == "__main__":
     # Self-test on Solana Mainnet USDC Mint (EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
     res = inspect_solana_spl_mint("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
